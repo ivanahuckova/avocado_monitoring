@@ -1,1 +1,2 @@
-config.h
+environment_monitoring/config.h
+height_monitoring/config.h
