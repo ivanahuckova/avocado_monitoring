@@ -79,7 +79,7 @@ int readSoilMoistureSensor() {
 // Update color of LED sensor
 void updateLedColor(int red_value, int green_value, int blue_value) {
    unsigned long hours = ntpClient.getHours();
-   // Quick fix, during the night, don't turn on led
+   // Quick fix, turn off LED during the night
     if(hours < 19 && hours > 8) {
       analogWrite(RED_PIN, red_value);
       analogWrite(GREEN_PIN, green_value);
