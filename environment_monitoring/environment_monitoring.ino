@@ -78,9 +78,17 @@ int readSoilMoistureSensor() {
 
 // Update color of LED sensor
 void updateLedColor(int red_value, int green_value, int blue_value) {
-    analogWrite(RED_PIN, red_value);
-    analogWrite(GREEN_PIN, green_value);
-    analogWrite(BLUE_PIN, blue_value);
+   unsigned long hours = ntpClient.getHours();
+   // Quick fix, during the night, don't turn on led
+    if(hours < 19 && hours > 8) {
+      analogWrite(RED_PIN, red_value);
+      analogWrite(GREEN_PIN, green_value);
+      analogWrite(BLUE_PIN, blue_value);
+    } else {
+      analogWrite(RED_PIN, 0);
+      analogWrite(GREEN_PIN, 0);
+      analogWrite(BLUE_PIN, 0);
+    }
 }
 
 // Function called at boot to initialize the system
