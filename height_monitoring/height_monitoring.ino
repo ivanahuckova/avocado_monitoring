@@ -16,6 +16,7 @@ UltraSonicDistanceSensor distanceSensor(ULTRASONIC_PIN_TRIG, ULTRASONIC_PIN_ECHO
 
 // Influx Client
 HTTPClient httpInflux;
+HTTPClient httpLoki;
 
 // Function to set up the connection to the WiFi AP
 void setupWiFi() {
@@ -45,7 +46,7 @@ void submitHostedInflux(unsigned long ts, long dist) {
   // Build body
   String body = String("height value=") + height + " " + ts;
 
-  // Submit POST request via HTTP
+  // Submit POST request via HTTPS
   httpInflux.begin(String("https://") + INFLUX_HOST + "/api/v2/write?org=" + INFLUX_ORG_ID + "&bucket=" + INFLUX_BUCKET + "&precision=s", ROOT_CA);
   httpInflux.addHeader("Authorization", INFLUX_TOKEN);
 
@@ -58,6 +59,28 @@ void submitHostedInflux(unsigned long ts, long dist) {
   }
 
   httpInflux.end();
+}
+
+void submitLogsToLoki(unsigned long ts, long dist) {
+  double height = 45.40 - dist;
+
+  String logMessage = String("height=") + height +" info";
+  String logJson = String("{\"streams\": [{ \"stream\": { \"monitoring\": \"avocado_monitoring\", \"monitoring_type\": \"height\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + logMessage + "\" ] ] }]}";   
+  Serial.println(logJson);
+
+  // Submit POST request via HTTPS
+  httpLoki.begin(String("https://") + LOKI_USER + ":" + LOKI_API_KEY + "@logs-prod-us-central1.grafana.net/loki/api/v1/push");
+  httpLoki.addHeader("Content-Type", "application/json");
+
+  int httpCode = httpLoki.POST(logJson);
+  if (httpCode > 0) {
+    Serial.printf("Loki [HTTPS] POST...  Code: %d  Response: ", httpCode);
+    Serial.println();
+  } else {
+    Serial.printf("Loki [HTTPS] POST... Error: %s\n", httpLoki.errorToString(httpCode).c_str());
+  }
+
+  httpLoki.end();
 }
 
 
@@ -105,6 +128,7 @@ void loop() {
 
   yield();
   submitHostedInflux(ts, dist);
+  submitLogsToLoki(ts, dist);
   
 
   // wait INTERVAL second, then do it again

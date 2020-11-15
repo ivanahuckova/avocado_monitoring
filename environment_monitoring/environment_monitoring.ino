@@ -17,6 +17,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 
 // Influx Client
 HTTPClient httpInflux;
+HTTPClient httpLoki;
 
 // Function to set up the connection to the WiFi AP
 void setupWiFi() {
@@ -61,6 +62,28 @@ void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int 
 
   httpInflux.end();
 }
+
+// Function to submit metrics to Influx
+void submitLogsToLoki(unsigned long ts, float cels, float hum, float hic, int moist, String message) {
+  String logMessage = String("temperature=") + cels + " humidity=" + hum + " heat_index=" + hic + " soil_moisture=" + moist + " status=" + message;
+  String logJson = String("{\"streams\": [{ \"stream\": { \"monitoring\": \"avocado_monitoring\", \"monitoring_type\": \"environment\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + logMessage + "\" ] ] }]}";   
+  Serial.println(logJson);
+
+  // Submit POST request via HTTP
+  httpLoki.begin(String("https://") + LOKI_USER + ":" + LOKI_API_KEY + "@logs-prod-us-central1.grafana.net/loki/api/v1/push");
+  httpLoki.addHeader("Content-Type", "application/json");
+
+  int httpCode = httpLoki.POST(logJson);
+  if (httpCode > 0) {
+    Serial.printf("Loki [HTTPS] POST...  Code: %d  Response: ", httpCode);
+    Serial.println();
+  } else {
+    Serial.printf("Loki [HTTPS] POST... Error: %s\n", httpLoki.errorToString(httpCode).c_str());
+  }
+
+  httpLoki.end();
+}
+
 
 // Function to return the analog soil moisture measurement
 int readSoilMoistureSensor() {
@@ -157,26 +180,33 @@ void loop() {
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(cels, hum, false);
 
+  String message = "";
+
     if(moist) {
+      message = "DRY critical";
       Serial.println("Avocado needs water");
       // Red color
       updateLedColor(255, 0, 0);
     } else if( cels < 16 ) {
+      message = "COLD warning";
       Serial.println("Avocado is cold");
       // Blue color 
       updateLedColor(0, 0, 255);
     } else if( cels > 26 ) {
       // Yellow color
       updateLedColor(255, 255, 0);
+      message = "HOT warning";
       Serial.println("Avocado is hot");
     } else {
       // Green color
       updateLedColor(0, 255, 0);
+      message = "OK info";
       Serial.println("Avocado is doing fine");
     }
 
   yield();
   submitHostedInflux(ts, cels, hum, hic, moist);
+  submitLogsToLoki(ts, cels, hum, hic, moist, message);
 
   // wait INTERVAL s, then do it again
   delay(INTERVAL * 1000);
