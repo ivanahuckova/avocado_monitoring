@@ -15,6 +15,9 @@ NTPClient ntpClient(ntpUDP);
 // DHT Sensor
 DHT dht(DHT_PIN, DHT_TYPE);
 
+// Ultrasonic Sensor
+UltraSonicDistanceSensor distanceSensor(ULTRASONIC_PIN_TRIG, ULTRASONIC_PIN_ECHO); 
+
 // Influx Client
 HTTPClient httpInflux;
 HTTPClient httpLoki;
@@ -40,13 +43,16 @@ void setupWiFi() {
 }
 
 // Function to submit metrics to Influx
-void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int moist) {
+void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int moist, long dist) {
+
+  double height = 45.40 - dist;
 
   // Build body
   String body = String("temperature value=") + cels + " " + ts + "\n" +
                 "humidity value=" + hum + " " + ts + "\n" +
                 "index value=" + hic + " " + ts + "\n" +
-                "moisture value=" + moist + " " + ts + "\n";
+                "moisture value=" + moist + " " + ts + "\n" +
+                "height value=" + height + " " + ts;
 
   // Submit POST request via HTTP
   httpInflux.begin(String("https://") + INFLUX_HOST + "/api/v2/write?org=" + INFLUX_ORG_ID + "&bucket=" + INFLUX_BUCKET + "&precision=s", ROOT_CA);
@@ -64,10 +70,12 @@ void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int 
 }
 
 // Function to submit metrics to Influx
-void submitLogsToLoki(unsigned long ts, float cels, float hum, float hic, int moist, String message) {
-  String logMessage = String("temperature=") + cels + " humidity=" + hum + " heat_index=" + hic + " soil_moisture=" + moist + " status=" + message;
+void submitLogsToLoki(unsigned long ts, float cels, float hum, float hic, int moist, long dist, String message) {
+  double height = 45.40 - dist;
+ 
+  String logMessage = String("temperature=") + cels + " humidity=" + hum + " heat_index=" + hic + " soil_moisture=" + moist + " height=" + height + " status=" + message;
   String logJson = String("{\"streams\": [{ \"stream\": { \"monitoring\": \"avocado_monitoring\", \"monitoring_type\": \"environment\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + logMessage + "\" ] ] }]}";   
-  Serial.println(logJson);
+  Serial.println(logJson);  
 
   // Submit POST request via HTTP
   httpLoki.begin(String("https://") + LOKI_USER + ":" + LOKI_API_KEY + "@logs-prod-us-central1.grafana.net/loki/api/v1/push");
@@ -169,8 +177,11 @@ void loop() {
   // Read soil moisture (DRY: 1, WET: 0)
   int moist = readSoilMoistureSensor();
 
+  // Read height
+  double dist = distanceSensor.measureDistanceCm();
+
   // Check if any reads failed and exit early (to try again)
-  if (isnan(hum) || isnan(cels) || isnan(moist)) {
+  if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(dist)) {
     // White color
     updateLedColor(255, 255, 255);
     Serial.println(F("Failed to read from some sensor!"));
@@ -205,9 +216,9 @@ void loop() {
     }
 
   yield();
-  submitHostedInflux(ts, cels, hum, hic, moist);
-  submitLogsToLoki(ts, cels, hum, hic, moist, message);
+  submitHostedInflux(ts, cels, hum, hic, moist, dist);
+  submitLogsToLoki(ts, cels, hum, hic, moist, dist, message);
 
   // wait INTERVAL s, then do it again
-  delay(INTERVAL * 1000);
+  delay(5 * 1000);
 }

@@ -11,6 +11,9 @@
 #define MOISTURE_POWER 17 // Which pin is soil moisture sensor connected to as a source of power (prevents fast corrosioon)
 #define MOISTURE_PIN 16 // Which pin is soil moisture sensor connected to
 
+#define ULTRASONIC_PIN_TRIG 25 // Which pin is HC-SR04's trig connected to
+#define ULTRASONIC_PIN_ECHO 26 // Which pin is HC-SR04's echo connected to
+
 #define RED_PIN 5 // Which pin is LED module connected to
 #define GREEN_PIN 13 // Which pin is LED module connected to
 #define BLUE_PIN 12 // Which pin is LED moduleconnected to
