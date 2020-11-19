@@ -5,6 +5,7 @@
 #include <DHT.h>
 #include <HCSR04.h>
 #include <analogWrite.h>
+#include <LedControl.h>
 
 #include "config.h"
 
@@ -18,9 +19,17 @@ DHT dht(DHT_PIN, DHT_TYPE);
 // Ultrasonic Sensor
 UltraSonicDistanceSensor distanceSensor(ULTRASONIC_PIN_TRIG, ULTRASONIC_PIN_ECHO); 
 
+// LED
+LedControl lc=LedControl(LED_DIN,LED_CLK,LED_CS,0);
+
 // Influx Client
 HTTPClient httpInflux;
 HTTPClient httpLoki;
+
+//Facial Expression
+byte smile[8]=   {0x3C,0x42,0xA5,0x81,0xA5,0x99,0x42,0x3C};
+byte neutral[8]= {0x3C,0x42,0xA5,0x81,0xBD,0x81,0x42,0x3C};
+byte sad[8]=   {0x3C,0x42,0xA5,0x81,0x99,0xA5,0x42,0x3C};
 
 // Function to set up the connection to the WiFi AP
 void setupWiFi() {
@@ -107,19 +116,16 @@ int readSoilMoistureSensor() {
 	return val;                          
 }
 
-// Update color of LED sensor
-void updateLedColor(int red_value, int green_value, int blue_value) {
-   unsigned long hours = ntpClient.getHours();
-   // Quick fix, turn off LED during the night
-    if(hours < 19 && hours > 8) {
-      analogWrite(RED_PIN, red_value);
-      analogWrite(GREEN_PIN, green_value);
-      analogWrite(BLUE_PIN, blue_value);
-    } else {
-      analogWrite(RED_PIN, 0);
-      analogWrite(GREEN_PIN, 0);
-      analogWrite(BLUE_PIN, 0);
+void printByte(byte character []) {
+  unsigned long hours = ntpClient.getHours();
+  if (hours < 19 && hours > 8) {
+    int i = 0;
+    for(i=0;i<8;i++)  {
+      lc.setRow(0,i,character[i]);
     }
+  } 
+
+
 }
 
 // Function called at boot to initialize the system
@@ -127,11 +133,6 @@ void setup() {
   // Set up moisture pins - initially keep the moisture sensor OFF
   pinMode(MOISTURE_POWER, OUTPUT);
 	digitalWrite(MOISTURE_POWER, LOW);
-
-  // Set up RGB led pins
-  pinMode(RED_PIN, OUTPUT);
-  pinMode(GREEN_PIN, OUTPUT);
-  pinMode(BLUE_PIN, OUTPUT);
 
   // Start the serial output at 115,200 baud
   Serial.begin(115200);
@@ -144,6 +145,11 @@ void setup() {
 
   // Start the DHT sensor
   dht.begin();
+
+  // Start
+  lc.shutdown(0,false);       
+  lc.setIntensity(0,0.0000001);      //Adjust the brightness maximum is 15
+  lc.clearDisplay(0);    
 
 }
 
@@ -183,7 +189,7 @@ void loop() {
   // Check if any reads failed and exit early (to try again)
   if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(dist)) {
     // White color
-    updateLedColor(255, 255, 255);
+    printByte(sad);
     Serial.println(F("Failed to read from some sensor!"));
     return;
   }
@@ -196,23 +202,19 @@ void loop() {
     if(moist) {
       message = "DRY critical";
       Serial.println("Avocado needs water");
-      // Red color
-      updateLedColor(255, 0, 0);
+      printByte(sad);
     } else if( cels < 16 ) {
       message = "COLD warning";
       Serial.println("Avocado is cold");
-      // Blue color 
-      updateLedColor(0, 0, 255);
+      printByte(neutral);
     } else if( cels > 26 ) {
-      // Yellow color
-      updateLedColor(255, 255, 0);
       message = "HOT warning";
       Serial.println("Avocado is hot");
+      printByte(neutral);
     } else {
-      // Green color
-      updateLedColor(0, 255, 0);
       message = "OK info";
       Serial.println("Avocado is doing fine");
+      printByte(smile);
     }
 
   yield();
@@ -220,5 +222,5 @@ void loop() {
   submitLogsToLoki(ts, cels, hum, hic, moist, dist, message);
 
   // wait INTERVAL s, then do it again
-  delay(5 * 1000);
+  delay(INTERVAL * 1000);
 }
