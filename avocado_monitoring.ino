@@ -22,14 +22,14 @@ UltraSonicDistanceSensor distanceSensor(ULTRASONIC_PIN_TRIG, ULTRASONIC_PIN_ECHO
 // LED
 LedControl lc=LedControl(LED_DIN,LED_CLK,LED_CS,0);
 
-// Influx Client
+// Clients
 HTTPClient httpInflux;
 HTTPClient httpLoki;
 
-//Facial Expression
-byte smile[8]=   {0x3C,0x42,0xA5,0x81,0xA5,0x99,0x42,0x3C};
-byte neutral[8]= {0x3C,0x42,0xA5,0x81,0xBD,0x81,0x42,0x3C};
-byte sad[8]=   {0x3C,0x42,0xA5,0x81,0x99,0xA5,0x42,0x3C};
+// Facial Expression for LED
+byte smile[8] = {0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C};
+byte neutral[8] = {0x3C, 0x42, 0xA5, 0x81, 0xBD, 0x81, 0x42, 0x3C};
+byte sad[8] = {0x3C, 0x42, 0xA5, 0x81, 0x99, 0xA5, 0x42, 0x3C};
 
 // Function to set up the connection to the WiFi AP
 void setupWiFi() {
@@ -52,10 +52,8 @@ void setupWiFi() {
 }
 
 // Function to submit metrics to Influx
-void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int moist, long dist) {
-
-  double height = 45.40 - dist;
-
+void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int moist, long height)
+{
   // Build body
   String body = String("temperature value=") + cels + " " + ts + "\n" +
                 "humidity value=" + hum + " " + ts + "\n" +
@@ -78,12 +76,11 @@ void submitHostedInflux(unsigned long ts, float cels, float hum, float hic, int 
   httpInflux.end();
 }
 
-// Function to submit metrics to Influx
-void submitLogsToLoki(unsigned long ts, float cels, float hum, float hic, int moist, long dist, String message) {
-  double height = 45.40 - dist;
- 
+// Function to submit metrics to Loki
+void submitLogsToLoki(unsigned long ts, float cels, float hum, float hic, int moist, long height, String message)
+{
   String logMessage = String("temperature=") + cels + " humidity=" + hum + " heat_index=" + hic + " soil_moisture=" + moist + " height=" + height + " status=" + message;
-  String logJson = String("{\"streams\": [{ \"stream\": { \"monitoring\": \"avocado_monitoring\", \"monitoring_type\": \"environment\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + logMessage + "\" ] ] }]}";   
+  String logJson = String("{\"streams\": [{ \"stream\": { \"monitoring\": \"avocado_monitoring\", \"monitoring_type\": \"avocado\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + logMessage + "\" ] ] }]}";   
   Serial.println(logJson);  
 
   // Submit POST request via HTTP
@@ -101,14 +98,13 @@ void submitLogsToLoki(unsigned long ts, float cels, float hum, float hic, int mo
   httpLoki.end();
 }
 
-
 // Function to return the analog soil moisture measurement
 int readSoilMoistureSensor() {
   // Turn the sensor ON
 	digitalWrite(MOISTURE_POWER, HIGH);  
   // Allow power to settle
 	delay(10);        
-  // Read the analog value form sensor                   
+  // Read the digital value form sensor                   
 	int val = digitalRead(MOISTURE_PIN); 
   // Turn the sensor OFF
 	digitalWrite(MOISTURE_POWER, LOW);   
@@ -124,8 +120,6 @@ void printByte(byte character []) {
       lc.setRow(0,i,character[i]);
     }
   } 
-
-
 }
 
 // Function called at boot to initialize the system
@@ -184,10 +178,11 @@ void loop() {
   int moist = readSoilMoistureSensor();
 
   // Read height
-  double dist = distanceSensor.measureDistanceCm();
+  double height = 45.40 - distanceSensor.measureDistanceCm();
 
   // Check if any reads failed and exit early (to try again)
-  if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(dist)) {
+  if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(height))
+  {
     // White color
     printByte(sad);
     Serial.println(F("Failed to read from some sensor!"));
@@ -218,8 +213,8 @@ void loop() {
     }
 
   yield();
-  submitHostedInflux(ts, cels, hum, hic, moist, dist);
-  submitLogsToLoki(ts, cels, hum, hic, moist, dist, message);
+  submitHostedInflux(ts, cels, hum, hic, moist, height);
+  submitLogsToLoki(ts, cels, hum, hic, moist, height, message);
 
   // wait INTERVAL s, then do it again
   delay(INTERVAL * 1000);
