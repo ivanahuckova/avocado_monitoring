@@ -14,9 +14,10 @@
 #define ULTRASONIC_PIN_TRIG 25 // Which pin is HC-SR04's trig connected to
 #define ULTRASONIC_PIN_ECHO 26 // Which pin is HC-SR04's echo connected to
 
-#define RED_PIN 5 // Which pin is LED module connected to
-#define GREEN_PIN 13 // Which pin is LED module connected to
-#define BLUE_PIN 12 // Which pin is LED moduleconnected to
+// LED Matrix
+#define LED_DIN 5
+#define LED_CS 13
+#define LED_CLK 12
 
 #define INFLUX_HOST "your_influx_host" // Influx host (e.g. eu-central-1-1.aws.cloud2.influxdata.com)
 #define INFLUX_ORG_ID "your_influx_org_id" // Org id
