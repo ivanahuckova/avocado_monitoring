@@ -27,7 +27,12 @@ byte smile[8] = {0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C};
 byte neutral[8] = {0x3C, 0x42, 0xA5, 0x81, 0xBD, 0x81, 0x42, 0x3C};
 byte sad[8] = {0x3C, 0x42, 0xA5, 0x81, 0x99, 0xA5, 0x42, 0x3C};
 byte off[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-byte err[8] = {0x00, 0x00, 0x78, 0x40, 0x70, 0x40, 0x78, 0x00}
+byte err[8] = {0x00, 0x00, 0x78, 0x40, 0x70, 0x40, 0x78, 0x00};
+
+//To not shoot ultrasonic waves too often
+int minHeight;
+int lastHour;
+double distanceFromPot = 36.40;
 
 // Function to set up the connection to the WiFi AP
 void setupWiFi() {
@@ -57,7 +62,7 @@ void submitToInflux(unsigned long ts, float cels, float hum, float hic, int mois
   httpInflux.begin(influxClient);
   httpInflux.addHeader("Authorization", INFLUX_TOKEN);
   int httpCode = httpInflux.POST(body);
-  Serial.printf("Influx [HTTPS] POST...  Code: %d", httpCode);
+  Serial.printf("Influx [HTTPS] POST...  Code: %d\n", httpCode);
   httpInflux.end();
 }
 
@@ -65,20 +70,20 @@ void submitToInflux(unsigned long ts, float cels, float hum, float hic, int mois
 void submitToLoki(unsigned long ts, float cels, float hum, float hic, int moist, long height, String message)
 {
   String lokiClient = String("https://") + LOKI_USER + ":" + LOKI_API_KEY + "@logs-prod-us-central1.grafana.net/loki/api/v1/push";
-  String body = String("{\"streams\": [{ \"stream\": { \"monitoring\": \"avocado_monitoring\", \"monitoring_type\": \"avocado\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + "temperature=" + cels + " humidity=" + hum + " heat_index=" + hic + " soil_moisture=" + moist + " height=" + height + " status=" + message + "\" ] ] }]}"
+  String body = String("{\"streams\": [{ \"stream\": { \"plant_id\": \"2020_12_17\", \"monitoring_type\": \"avocado\"}, \"values\": [ [ \"") + ts + "000000000\", \"" + "temperature=" + cels + " humidity=" + hum + " heat_index=" + hic + " soil_moisture=" + moist + " height=" + height + " status=" + message + "\" ] ] }]}";
 
   // Submit POST request via HTTP
   httpLoki.begin(lokiClient);
   httpLoki.addHeader("Content-Type", "application/json");
   int httpCode = httpLoki.POST(body);
-  Serial.printf("Influx [HTTPS] POST...  Code: %d", httpCode);
+  Serial.printf("Loki [HTTPS] POST...  Code: %\n", httpCode);
   httpLoki.end();
 }
 
 // Function to display state of the plant on LED Matrix
 void displayState(byte character []) {
-  unsigned long hours = ntpClient.getHours();
-  bool shouldDisplay = (hours < 19 && hours > 8);   // Turn off in the night
+  unsigned long currHour = ntpClient.getHours();
+  bool shouldDisplay = (currHour < 21 && currHour > 8);   // Turn off in the night
   if (shouldDisplay)  {
     for (int i = 0; i < 8; i++) {
       lc.setRow(0, i, character[i]);
@@ -107,11 +112,11 @@ String convertDataToState (int moist, float cels) {
       displayState(smile);
     }
 
-    return currentState
+    return currentState;
 }
 
 // Function to read soil moisture measurement
-int readSoilMoistureSensor() {
+int getSoilMoisture() {
   // Turn the sensor ON
 	digitalWrite(MOISTURE_POWER, HIGH);  
   // Allow power to settle
@@ -121,11 +126,30 @@ int readSoilMoistureSensor() {
   // Turn the sensor OFF
 	digitalWrite(MOISTURE_POWER, LOW);   
   // Return moisture value
-	return val;                          
+	return val;         
+}
+
+double getHeight() {
+  unsigned long currHour = ntpClient.getHours();
+  double height;
+  if (currHour == lastHour) {
+    if (lastHeight > 10) {
+      height = lastHeight;
+    } else {
+      height = DISTANCE_FROM_POT - distanceSensor.measureDistanceCm();
+    }
+  } else {
+    height = DISTANCE_FROM_POT - distanceSensor.measureDistanceCm(); 
+    
+  }
+  lastHeight = height;
+  lastHour = currHour;
+
+  return height;
 }
 
 // Function to check if any reading failed
-checkIfReadingFailed(float hum, floatt cels, int moist, double height) {
+void checkIfReadingFailed(float hum, float cels, int moist, double height) {
   if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(height)) {
       // Print letter E as error
       displayState(err);
@@ -185,25 +209,24 @@ void loop() {
   float cels = dht.readTemperature();
 
   // Read soil moisture (DRY: 1, WET: 0)
-  int moist = readSoilMoistureSensor();
+  int moist = getSoilMoisture();
 
   // Read height of plant
-  double distanceFromGround = 45.40;
-  double height = distanceFromGround - distanceSensor.measureDistanceCm();
+  double height = getHeight();
 
   // Check if any reads failed and exit early (to try again)
-  checkIfReadingFailed(hum, cels, moist, height)
+  checkIfReadingFailed(hum, cels, moist, height);
 
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(cels, hum, false);
 
   // Convert data to state of the plant
-  convertDataToState(moist, cels);
+  String message = convertDataToState(moist, cels);
 
   // Submit data
   submitToInflux(ts, cels, hum, hic, moist, height);
   submitToLoki(ts, cels, hum, hic, moist, height, message);
 
   // wait INTERVAL seconds, then do it again
-  delay(INTERVAL * 1000);
+  delay(5 * 1000);
 }

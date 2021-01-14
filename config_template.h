@@ -3,13 +3,15 @@
 #define WIFI_PASSWORD "your_wifi_password" // Add wifi passowrd
 
 #define ID "avocadoEnv" // Add unique name for this sensor
+#define PLANT_ID "your_id"
 #define INTERVAL 60  // Add interval (e.g. 1 min)
 
-#define DHT_PIN 27    // Which pin is DHT 11 connected to
-#define DHT_TYPE DHT11 // Type DHT 11
+#define DHT_PIN 27    // Which pin is DHT 22 connected to
+#define DHT_TYPE DHT22 // Type DHT 22
 
 #define MOISTURE_POWER 17 // Which pin is soil moisture sensor connected to as a source of power (prevents fast corrosioon)
 #define MOISTURE_PIN 16 // Which pin is soil moisture sensor connected to
+#define DISTANCE_FROM_POT 36.40
 
 #define ULTRASONIC_PIN_TRIG 25 // Which pin is HC-SR04's trig connected to
 #define ULTRASONIC_PIN_ECHO 26 // Which pin is HC-SR04's echo connected to
@@ -26,36 +28,3 @@
 
 #define LOKI_USER "1111" // Loki user
 #define LOKI_API_KEY "api_key_for_loki" // Loki API Key
-
-
-// How to get the Root CA cert:
-// https://techtutorialsx.com/2017/11/18/esp32-arduino-https-get-request/
-
-#define ROOT_CA "-----BEGIN CERTIFICATE-----" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexampleexampleexampleexampleexampleexampleexampleexamplee" \
-"exampleexample" \
-"-----END CERTIFICATE-----"
