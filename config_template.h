@@ -3,7 +3,6 @@
 #define WIFI_PASSWORD "your_wifi_password" // Add wifi passowrd
 
 #define ID "avocadoEnv" // Add unique name for this sensor
-#define PLANT_ID "your_id"
 #define INTERVAL 60  // Add interval (e.g. 1 min)
 
 #define DHT_PIN 27    // Which pin is DHT 22 connected to
@@ -11,10 +10,13 @@
 
 #define MOISTURE_POWER 17 // Which pin is soil moisture sensor connected to as a source of power (prevents fast corrosioon)
 #define MOISTURE_PIN 16 // Which pin is soil moisture sensor connected to
-#define DISTANCE_FROM_POT 36.40
+#define DISTANCE_FROM_POT 36.40 // Calculated so we get the height of plant frm the soil
 
 #define ULTRASONIC_PIN_TRIG 25 // Which pin is HC-SR04's trig connected to
 #define ULTRASONIC_PIN_ECHO 26 // Which pin is HC-SR04's echo connected to
+
+#define TEMP6000_PIN 34 // Light sensor pin
+#define TEMP6000_VCC 5.0 // Light used voltage
 
 // LED Matrix
 #define LED_DIN 5
