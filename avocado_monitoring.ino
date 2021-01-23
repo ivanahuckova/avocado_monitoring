@@ -22,7 +22,7 @@ UltraSonicDistanceSensor distanceSensor(ULTRASONIC_PIN_TRIG, ULTRASONIC_PIN_ECHO
 // LED
 LedControl lc=LedControl(LED_DIN,LED_CLK,LED_CS,0);
 
-// Facial Expression for LED
+// LED visualisations
 byte smile[8] = {0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C};
 byte neutral[8] = {0x3C, 0x42, 0xA5, 0x81, 0xBD, 0x81, 0x42, 0x3C};
 byte sad[8] = {0x3C, 0x42, 0xA5, 0x81, 0x99, 0xA5, 0x42, 0x3C};
@@ -124,12 +124,19 @@ int getSoilMoisture() {
 	return val;         
 }
 
+// Function to read height of the plant
 double getHeight() {
-
+  double avgCurrentHeight = 23;
   double height = DISTANCE_FROM_POT - distanceSensor.measureDistanceCm();
-  return height;
+    // Serial.println(height);
+  if (height > avgCurrentHeight - 3 && height < avgCurrentHeight + 3) {
+    return height;
+  }
+
+  return avgCurrentHeight;  
 }
 
+// Function to read light condition
 float getLightLux() {
   float sensor_value = analogRead(TEMP6000_PIN);  // Get raw sensor reading
   float volts = sensor_value * TEMP6000_VCC / 1024.0;  // Convert reading to voltage
@@ -141,13 +148,14 @@ float getLightLux() {
 }
 
 // Function to check if any reading failed
-void checkIfReadingFailed(float hum, float cels, int moist, double height, float light) {
+bool checkIfReadingFailed(float hum, float cels, int moist, double height, float light) {
   if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(height) || isnan(light)) {
       // Print letter E as error
       displayState(err);
       Serial.println(F("Failed to read from some sensor!"));
-      return;
+      return true;
     }
+    return false;
 }
 
 // ========== MAIN FUNCTIONS: SETUP & LOOP ========== 
@@ -209,8 +217,10 @@ void loop() {
   //Read the light in lux
   float light = getLightLux();
 
-  // Check if any reads failed and exit early (to try again)
-  checkIfReadingFailed(hum, cels, moist, height, light);
+  // Check if any reads failed and return early
+  if (checkIfReadingFailed(hum, cels, moist, height, light)) {
+    return;
+  }
 
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(cels, hum, false);
