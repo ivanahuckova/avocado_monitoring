@@ -90,26 +90,6 @@ void displayState(byte character []) {
   }
 }
 
-// Function to create message and display current state of the plant
-String convertDataToState (int moist, float cels) {
-    String currentState = "";
-    if (moist) {
-      currentState = "DRY critical";
-      displayState(sad);
-    } else if( cels < 16 ) {
-      currentState = "COLD warning";
-      displayState(neutral);
-    } else if( cels > 26 ) {
-      currentState = "HOT warning";
-      displayState(neutral);
-    } else {
-      currentState = "OK info";
-      displayState(smile);
-    }
-
-    return currentState;
-}
-
 // Function to read soil moisture measurement
 int getSoilMoisture() {
   // Turn the sensor ON
@@ -126,14 +106,14 @@ int getSoilMoisture() {
 
 // Function to read height of the plant
 double getHeight() {
-  double avgCurrentHeight = 23;
+  double manualCurrentHeight = 25;
   double height = DISTANCE_FROM_POT - distanceSensor.measureDistanceCm();
     // Serial.println(height);
-  if (height > avgCurrentHeight - 3 && height < avgCurrentHeight + 3) {
+  if (height > manualCurrentHeight - 3 && height < manualCurrentHeight + 4) {
     return height;
   }
 
-  return avgCurrentHeight;  
+  return manualCurrentHeight;  
 }
 
 // Function to read light condition
@@ -156,6 +136,26 @@ bool checkIfReadingFailed(float hum, float cels, int moist, double height, float
       return true;
     }
     return false;
+}
+
+// Function to create message and display current state of the plant
+String createAndDisplayState (int moist, float cels) {
+    String currentState = "";
+    if (moist) {
+      currentState = "DRY critical";
+      displayState(sad);
+    } else if( cels < 16 ) {
+      currentState = "COLD warning";
+      displayState(neutral);
+    } else if( cels > 26 ) {
+      currentState = "HOT warning";
+      displayState(neutral);
+    } else {
+      currentState = "OK info";
+      displayState(smile);
+    }
+
+    return currentState;
 }
 
 // ========== MAIN FUNCTIONS: SETUP & LOOP ========== 
@@ -226,7 +226,7 @@ void loop() {
   float hic = dht.computeHeatIndex(cels, hum, false);
 
   // Convert data to state of the plant
-  String message = convertDataToState(moist, cels);
+  String message = createAndDisplayState(moist, cels);
 
   // Submit data
   submitToInflux(ts, cels, hum, hic, moist, height, light);
