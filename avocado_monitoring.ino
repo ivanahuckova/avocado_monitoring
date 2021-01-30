@@ -22,7 +22,7 @@ UltraSonicDistanceSensor distanceSensor(ULTRASONIC_PIN_TRIG, ULTRASONIC_PIN_ECHO
 // LED
 LedControl lc=LedControl(LED_DIN,LED_CLK,LED_CS,0);
 
-// Facial Expression for LED
+// LED visualisations
 byte smile[8] = {0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C};
 byte neutral[8] = {0x3C, 0x42, 0xA5, 0x81, 0xBD, 0x81, 0x42, 0x3C};
 byte sad[8] = {0x3C, 0x42, 0xA5, 0x81, 0x99, 0xA5, 0x42, 0x3C};
@@ -90,8 +90,56 @@ void displayState(byte character []) {
   }
 }
 
+// Function to read soil moisture measurement
+int getSoilMoisture() {
+  // Turn the sensor ON
+	digitalWrite(MOISTURE_POWER, HIGH);  
+  // Allow power to settle
+	delay(10);        
+  // Read the digital value form sensor                   
+	int val = digitalRead(MOISTURE_PIN); 
+  // Turn the sensor OFF
+	digitalWrite(MOISTURE_POWER, LOW);   
+  // Return moisture value
+	return val;         
+}
+
+// Function to read height of the plant
+double getHeight() {
+  double manualCurrentHeight = 25;
+  double height = DISTANCE_FROM_POT - distanceSensor.measureDistanceCm();
+    // Serial.println(height);
+  if (height > manualCurrentHeight - 3 && height < manualCurrentHeight + 4) {
+    return height;
+  }
+
+  return manualCurrentHeight;  
+}
+
+// Function to read light condition
+float getLightLux() {
+  float sensor_value = analogRead(TEMP6000_PIN);  // Get raw sensor reading
+  float volts = sensor_value * TEMP6000_VCC / 1024.0;  // Convert reading to voltage
+  float amps = volts / 10000.0; // Convert to amps across 10K resistor
+  float microamps = amps * 1000000.0; // Convert amps to microamps
+  float lux = microamps * 2.0; 
+  
+  return lux;
+}
+
+// Function to check if any reading failed
+bool checkIfReadingFailed(float hum, float cels, int moist, double height, float light) {
+  if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(height) || isnan(light)) {
+      // Print letter E as error
+      displayState(err);
+      Serial.println(F("Failed to read from some sensor!"));
+      return true;
+    }
+    return false;
+}
+
 // Function to create message and display current state of the plant
-String convertDataToState (int moist, float cels) {
+String createAndDisplayState (int moist, float cels) {
     String currentState = "";
     if (moist) {
       currentState = "DRY critical";
@@ -108,46 +156,6 @@ String convertDataToState (int moist, float cels) {
     }
 
     return currentState;
-}
-
-// Function to read soil moisture measurement
-int getSoilMoisture() {
-  // Turn the sensor ON
-	digitalWrite(MOISTURE_POWER, HIGH);  
-  // Allow power to settle
-	delay(10);        
-  // Read the digital value form sensor                   
-	int val = digitalRead(MOISTURE_PIN); 
-  // Turn the sensor OFF
-	digitalWrite(MOISTURE_POWER, LOW);   
-  // Return moisture value
-	return val;         
-}
-
-double getHeight() {
-
-  double height = DISTANCE_FROM_POT - distanceSensor.measureDistanceCm();
-  return height;
-}
-
-float getLightLux() {
-  float sensor_value = analogRead(TEMP6000_PIN);  // Get raw sensor reading
-  float volts = sensor_value * TEMP6000_VCC / 1024.0;  // Convert reading to voltage
-  float amps = volts / 10000.0; // Convert to amps across 10K resistor
-  float microamps = amps * 1000000.0; // Convert amps to microamps
-  float lux = microamps * 2.0; 
-  
-  return lux;
-}
-
-// Function to check if any reading failed
-void checkIfReadingFailed(float hum, float cels, int moist, double height, float light) {
-  if (isnan(hum) || isnan(cels) || isnan(moist) || isnan(height) || isnan(light)) {
-      // Print letter E as error
-      displayState(err);
-      Serial.println(F("Failed to read from some sensor!"));
-      return;
-    }
 }
 
 // ========== MAIN FUNCTIONS: SETUP & LOOP ========== 
@@ -209,14 +217,16 @@ void loop() {
   //Read the light in lux
   float light = getLightLux();
 
-  // Check if any reads failed and exit early (to try again)
-  checkIfReadingFailed(hum, cels, moist, height, light);
+  // Check if any reads failed and return early
+  if (checkIfReadingFailed(hum, cels, moist, height, light)) {
+    return;
+  }
 
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(cels, hum, false);
 
   // Convert data to state of the plant
-  String message = convertDataToState(moist, cels);
+  String message = createAndDisplayState(moist, cels);
 
   // Submit data
   submitToInflux(ts, cels, hum, hic, moist, height, light);
