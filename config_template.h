@@ -30,3 +30,6 @@
 
 #define LOKI_USER "1111" // Loki user
 #define LOKI_API_KEY "api_key_for_loki" // Loki API Key
+
+#define GRAPHITE_USER "1111" // Graphite user
+#define GRAPHITE_API_KEY "api_key_for_graphite" // Graphite API Key
