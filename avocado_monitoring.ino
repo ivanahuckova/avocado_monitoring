@@ -14,6 +14,7 @@ NTPClient ntpClient(ntpUDP);
 // Loki & Infllux Clients
 HTTPClient httpInflux;
 HTTPClient httpLoki;
+HTTPClient httpGraphite;
 
 // Sensors
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -73,6 +74,27 @@ void submitToLoki(unsigned long ts, float cels, float hum, float hic, int moist,
   int httpCode = httpLoki.POST(body);
   Serial.printf("Loki [HTTPS] POST...  Code: %\n", httpCode);
   httpLoki.end();
+}
+
+// Function to submit logs to Graphite
+void submitToGraphite(unsigned long ts, float cels, float hum, float hic, int moist, long height, float light) {
+  // build hosted metrics json payload
+  String body = String("[") +
+    "{\"name\":\"temperature\",\"interval\":" + INTERVAL + ",\"value\":" + cels + ",\"mtype\":\"gauge\",\"time\":" + ts + "}," +
+    "{\"name\":\"humidity\",\"interval\":" + INTERVAL + ",\"value\":" + hum + ",\"mtype\":\"gauge\",\"time\":" + ts + "}," +
+    "{\"name\":\"heat_index\",\"interval\":" + INTERVAL + ",\"value\":" + hic + ",\"mtype\":\"gauge\",\"time\":" + ts + "}," +
+    "{\"name\":\"moisture\",\"interval\":" + INTERVAL + ",\"value\":" + moist + ",\"mtype\":\"gauge\",\"time\":" + ts + "}," +
+    "{\"name\":\"height\",\"interval\":" + INTERVAL + ",\"value\":" + height + ",\"mtype\":\"gauge\",\"time\":" + ts + "}," +
+    "{\"name\":\"light\",\"interval\":" + INTERVAL + ",\"value\":" + light + ",\"mtype\":\"gauge\",\"time\":" + ts + "}]";
+
+  // submit POST request via HTTP
+  httpGraphite.begin("https://graphite-us-central1.grafana.net/metrics");
+  httpGraphite.setAuthorization(GRAPHITE_USER, GRAPHITE_API_KEY);
+  httpGraphite.addHeader("Content-Type", "application/json");
+
+  int httpCode = httpGraphite.POST(body);
+  Serial.printf("Graphite [HTTPS] POST...  Code: %\n", httpCode);
+  httpGraphite.end();
 }
 
 // Function to display state of the plant on LED Matrix
@@ -230,6 +252,7 @@ void loop() {
 
   // Submit data
   submitToInflux(ts, cels, hum, hic, moist, height, light);
+  submitToGraphite(ts, cels, hum, hic, moist, height, light);
   submitToLoki(ts, cels, hum, hic, moist, height, light, message);
 
   // wait INTERVAL seconds, then do it again
